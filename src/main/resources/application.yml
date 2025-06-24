@@ -1,6 +1,9 @@
 spring:
   application:
     name: SportCenter
+  output:
+    ansi:
+      enabled: ALWAYS
   datasource:
     url: jdbc:mysql://localhost:3306/sport_center
     username: root
@@ -12,8 +15,12 @@ spring:
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
+        dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
+
+app:
+  version: v1
+  url: http://localhost:9000
 
 server:
   port: 9000
