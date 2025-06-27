@@ -7,6 +7,11 @@ import com.ecommerce.sportcenter.response.TypeResponse;
 import com.ecommerce.sportcenter.service.BrandService;
 import com.ecommerce.sportcenter.service.ProductService;
 import com.ecommerce.sportcenter.service.TypeService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -33,8 +38,17 @@ public class ProductController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ProductResponse>> GetAll(){
-        List<ProductResponse> response = _productService.GetAll();
+    public ResponseEntity<Page<ProductResponse>> GetAll(
+            @RequestParam(name = "page", defaultValue = "1")Integer page,
+            @RequestParam(name = "size", defaultValue = "10") Integer size,
+            @RequestParam(name = "keyword", required = false) String keyword,
+            @RequestParam(name = "brandId", required = false) Integer brandId,
+            @RequestParam(name = "typeId", required = false) Integer typeId,
+            @RequestParam(name = "sortBy", defaultValue = "name") String sortBy,
+            @RequestParam(name = "orderBy", defaultValue = "asc") String orderBy
+    ){
+        Sort.Direction direction = orderBy.equalsIgnoreCase("desc") ? Sort.Direction.DESC : Sort.Direction.ASC;
+        Page<ProductResponse> response = _productService.GetAllWithPagination(PageRequest.of(page, size, Sort.by(direction, sortBy)), brandId, typeId, keyword);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 

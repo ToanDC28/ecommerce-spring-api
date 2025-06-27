@@ -11,6 +11,9 @@ import com.ecommerce.sportcenter.response.BrandResponse;
 import com.ecommerce.sportcenter.response.ProductResponse;
 import com.ecommerce.sportcenter.response.TypeResponse;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -104,6 +107,27 @@ public class ProductServiceImplement implements ProductService{
 
         ProductResponse response = convertToResponse(result.get());
         log.info("Fetched Product...");
+        return response;
+    }
+
+    @Override
+    public Page<ProductResponse> GetAllWithPagination(Pageable page, Integer brandId, Integer typeId, String keyword) {
+        log.info("Fetching All Product With Pagination...");
+
+        Specification<Product> spec = Specification.not(null);
+        if(brandId != null){
+            spec = spec.and((root, query, builder) -> builder.equal(root.get("brand").get("id"), brandId));
+        }
+        if(typeId != null){
+            spec = spec.and((root, query, builder) -> builder.equal(root.get("type").get("id"), typeId));
+        }
+        if(keyword != null && !keyword.isEmpty()){
+            spec = spec.and((root, query, builder) -> builder.like(root.get("name"), "%" + keyword + "%"));
+        }
+        Page<Product> result = _repository.findAll(spec, page);
+        Page<ProductResponse> response = result
+                .map(this::convertToResponse);
+        log.info("Fetched All Product With Pagination...");
         return response;
     }
 }
