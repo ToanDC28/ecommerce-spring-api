@@ -5,9 +5,14 @@ spring:
     ansi:
       enabled: ALWAYS
   datasource:
-    url: jdbc:mysql://localhost:3306/sport_center
-    username: root
+    url: jdbc:postgresql://localhost:5432/sport_center
+    username: postgres
     password: 12345
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
   jpa:
     hibernate:
       ddl-auto: update
@@ -15,12 +20,23 @@ spring:
         physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
+        dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
 app:
   version: v1
   url: http://localhost:9000
+  jwt:
+    # Generate a strong random 256-bit+ secret for production, e.g. `openssl rand -base64 64`
+    secret: change-me-to-a-very-long-random-secret-at-least-32-bytes-for-hs256-jwt-please
+    expiration-ms: 300000 # legacy fallback for access token (5m)
+    access-expiration-ms: 300000 # 5m (short: bounds the reuse window of a logged-out access token)
+    refresh-expiration-ms: 604800000 # 7d
+
+  auth:
+    bloom-expected-insertions: 10000
+    bloom-fpp: 0.01
+    bloom-rebuild-ms: 3600000 # 1h
 
 server:
   port: 9000
