@@ -21,6 +21,12 @@ public class SearchAdvanceRequest extends com.ecommerce.sportcenter.module.base.
     @Schema(description = "Filter by customer id")
     private Integer customerId;
 
+    @Schema(description = "Filter by work order id")
+    private Integer workOrderId;
+
+    @Schema(description = "Filter by sales order id")
+    private Integer salesOrderId;
+
     @Schema(description = "Filter by status")
     private AdvanceStatus status;
 

@@ -36,4 +36,5 @@ public class WorkOrderResponse {
     private long materialPlannedCost;
     private long materialActualCost;
     private List<WorkOrderMaterialResponse> materials;
+    private List<WorkOrderAttachmentResponse> attachments;
 }

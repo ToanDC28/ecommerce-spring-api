@@ -44,4 +44,32 @@ public class UpdateMaterialRequest {
 
     @Schema(description = "Active flag")
     private Boolean active;
+
+    // Thông số kỹ thuật kim loại — tất cả optional, chỉ set khi có giá trị
+    @Schema(description = "Mác vật liệu")
+    private String materialGrade;
+
+    @Schema(description = "Tiêu chuẩn")
+    private String standard;
+
+    @Schema(description = "Quy cách chính")
+    private String spec;
+
+    @Schema(description = "Dày (mm)")
+    private Double thicknessMm;
+
+    @Schema(description = "Rộng (mm)")
+    private Double widthMm;
+
+    @Schema(description = "Dài (mm)")
+    private Double lengthMm;
+
+    @Schema(description = "Đường kính (mm)")
+    private Double diameterMm;
+
+    @Schema(description = "Cấp bền")
+    private String strengthGrade;
+
+    @Schema(description = "Chi tiết kỹ thuật còn lại")
+    private String detail;
 }

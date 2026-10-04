@@ -15,8 +15,8 @@ DONE phase 1 (PDF để riêng) — `module/invoice/*`: WORK auto + PURCHASE aut
 
 `Invoice(id, code UNIQUE [INV-2026-00001], type[WORK,SALES,PURCHASE], work_order_id?/work_order_code? (WORK), so_id?/so_code? (SALES), supplier_id?/supplier_name? (PURCHASE, snapshot), ref_code? (GIN/GRN code gốc), customer_id (required với WORK/SALES) + customerName/Phone snapshot tự lấy theo link, issueDate, dueDate, subTotal, discountAmount, vatRate[0,8,10], vatAmount, grandTotal, paidAmount, status[DRAFT,ISSUED,PARTIAL,PAID,OVERDUE,CANCELLED,REFUNDED], createdBy)`
 `InvoiceItem(invoice_id, material_id? (null cho dòng labor/phụ phí/auto PURCHASE/SALES — description là snapshot), description, qty, unitPrice, discount, lineTotal)`
-- Dòng WORK: auto-gen từ `WorkOrderMaterial.qtyActual * unitSellPrice` + 1 dòng `laborCost` + `overheadCost` từ WorkOrder DONE (VAT mặc định 10).
-- Dòng SALES: auto-gen khi GIN confirm từ issue lines (giá bán snapshot, VAT mặc định 0 bán lẻ).
+- Dòng WORK: auto-gen từ `WorkOrderMaterial.qtyActual * unitSellPrice` + 1 dòng `laborCost` + `overheadCost` từ WorkOrder DONE (VAT mặc định 10). Xuất xong tự cấn các cọc ACTIVE của đúng WO (nguyên cục, cọc nào vừa thì apply, lớn hơn thì giữ lại).
+- Dòng SALES: auto-gen khi GIN confirm từ issue lines (giá bán snapshot, VAT mặc định 0 bán lẻ) + tự cấn cọc ACTIVE của đúng SO (cùng quy tắc nguyên cục).
 - Dòng PURCHASE: auto-gen khi GRN confirm từ receipt lines (VAT mặc định 10).
 
 Formulas: `subTotal = sum(lineTotal)`, `vatAmount = (subTotal - discount) * vatRate`, `grandTotal = subTotal - discount + vatAmount`.

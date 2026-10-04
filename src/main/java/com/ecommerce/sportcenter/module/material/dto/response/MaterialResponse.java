@@ -31,4 +31,13 @@ public class MaterialResponse {
     private String location;
     private boolean active;
     private boolean lowStock;
+    private String materialGrade;
+    private String standard;
+    private String spec;
+    private Double thicknessMm;
+    private Double widthMm;
+    private Double lengthMm;
+    private Double diameterMm;
+    private String strengthGrade;
+    private String detail;
 }

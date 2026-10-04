@@ -13,6 +13,9 @@ TODO — chưa có code. Ưu tiên làm trước Sales (06) và Invoice (07).
 
 `WorkOrder(id, code UNIQUE [WO-2026-0001], type[REPAIR, MANUFACTURE_NEW], contractNo?, customer_id (required, Customer master 12), customerName/Phone snapshot hiển thị, machineInfo (tên máy/model/tình trạng nhận), receivedDate, dueDate, status[DRAFT, CONFIRMED, IN_PROGRESS, DONE, INVOICED, CANCELLED], laborCost, overheadCost, agreedPrice?, note, createdBy)`
 `WorkOrderMaterial(id, work_order_id, material_id, qtyPlanned (dự toán báo giá), qtyActual (thực xuất, default = 0), unitCost (giá vốn tại thời điểm xuất, snapshot), unitSellPrice (đơn giá tính cho khách, snapshot), note)`
+`WorkOrderAttachment(id, work_order_id, fileName, url (link Zipline), contentType, sizeBytes, uploadedBy)` — ảnh JPG/PNG/WEBP tối đa 10MB, upload qua Zipline tự host, DB chỉ giữ URL.
+
+Setup Zipline (1 lần, xem `docker/docker-compose.yml`): `docker compose -f docker/docker-compose.yml up -d shop-zipline-db shop-zipline` → mở `http://localhost:3001` tạo admin → Settings/API keys tạo token → dán vào `app.zipline.base-url` + `app.zipline.api-key` (application.yml) → restart backend. Đổi `WEBSITE_URL` + `SECRET` khi deploy domain thật. Luồng upload: FE gửi file lên backend → backend đẩy tiếp sang Zipline bằng API key (không lộ ra FE) → lưu URL. Chưa cấu hình key thì upload báo 500 rõ lý do.
 - `qtyPlanned` dùng để báo giá / duyệt hợp đồng.
 - `qtyActual` dùng để trừ kho + tính invoice. Chênh lệch planned vs actual = lãi/lỗ vật tư.
 - `unitCost/unitSellPrice` snapshot tại lúc confirm để sau này giá Material đổi không làm sai lịch sử.
@@ -25,7 +28,7 @@ TODO — chưa có code. Ưu tiên làm trước Sales (06) và Invoice (07).
 DRAFT (thợ/kinh doanh tạo, nhập machineInfo + qtyPlanned)
  -> CONFIRMED (chủ/ADMIN duyệt, chốt phạm vi làm)
  -> IN_PROGRESS (thợ bắt đầu, xuất vật tư dần → qtyActual+, Stock- qua StockTransaction REPAIR_OUT/MANUFACTURE_OUT)
- -> DONE (nghiệm thu, chốt qtyActual, chốt laborCost/overhead)
+ -> DONE (nghiệm thu: BẮT BUỘC ≥1 ảnh + chốt qtyActual, chốt laborCost/overhead)
  -> INVOICED (ACCOUNTANT xuất Invoice WORK từ actual + labor, xem 07)
 CANCELLED trước IN_PROGRESS thì hoàn lại reservation (nếu có), không trừ kho.
 ```
@@ -46,6 +49,9 @@ GET  /api/work-orders/{id}                                         # ORDER_READ 
 PUT  /api/work-orders/{id}                                         # ORDER_WRITE (chỉ DRAFT/CONFIRMED)
 POST /api/work-orders/{id}/confirm                                 # ORDER_WRITE (chủ/ADMIN duyệt)
 POST /api/work-orders/{id}/consume {items:[{materialId, qty}]}     # INVENTORY_WRITE (xuất thực tế → qtyActual+, Stock-)
+POST /api/work-orders/{id}/attachments (multipart file)            # ORDER_WRITE/INVENTORY_WRITE (upload ảnh nghiệm thu, chỉ CONFIRMED/IN_PROGRESS)
+GET  /api/work-orders/{id}/attachments                            # ORDER_READ
+
 POST /api/work-orders/{id}/done                                    # ORDER_WRITE (chốt actual + labor)
 POST /api/work-orders/{id}/cancel                                  # ORDER_WRITE
 GET  /api/work-orders/{id}/materials                               # ORDER_READ (planned vs actual, shortfall)
@@ -62,7 +68,7 @@ GET  /api/work-orders/{id}/materials                               # ORDER_READ 
 - [x] Tạo WO với `qtyPlanned`; confirm chuyển `DRAFT→CONFIRMED`.
 - [x] `/consume` trừ `Stock.qtyOnHand`, cộng `qtyActual`, sinh `StockTransaction(OUT, WORK_ORDER)` với before/after.
 - [x] Xuất quá tồn bị 409 + chi tiết thiếu (`materialId, requested, available`).
-- [x] `DONE` chốt actual + labor; `INVOICED` khóa WO (sửa phải hủy invoice).
+- [x] `DONE` chốt actual + labor + BẮT BUỘC ≥1 ảnh nghiệm thu (thiếu → 400); `INVOICED` khóa WO (sửa phải hủy invoice).
 - [x] Báo cáo lãi/lỗ theo WO: `agreedPrice - (sum(qtyActual*unitCost) + laborCost + overhead)` (`GET /api/reports/workorder-profit`).
 
 ## Dependencies

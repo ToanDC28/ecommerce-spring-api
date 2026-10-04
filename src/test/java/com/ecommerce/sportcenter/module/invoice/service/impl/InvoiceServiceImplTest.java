@@ -49,6 +49,8 @@ class InvoiceServiceImplTest {
     @Mock
     private WorkOrderMaterialRepository workOrderMaterialRepository;
     @Mock
+    private com.ecommerce.sportcenter.module.payment.service.AdvanceService advanceService;
+    @Mock
     private CustomerRepository customerRepository;
     @Mock
     private InvoiceMapper invoiceMapper;
@@ -92,6 +94,8 @@ class InvoiceServiceImplTest {
             assertThat(result.getCode()).isEqualTo("INV-2026-00001");
             // subTotal = 5*30000 + 2000000 = 2150000, VAT 10% = 215000
             assertThat(wo.getStatus()).isEqualTo(WorkOrderStatus.INVOICED);
+            // cọc của WO tự trừ lúc xuất invoice
+            verify(advanceService).autoApply(1);
         }
 
         @Test

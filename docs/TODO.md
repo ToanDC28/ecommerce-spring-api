@@ -21,7 +21,7 @@
 
 | # | Mục | Spec |
 |---|-----|------|
-| 9 | Flyway/Liquibase + `ddl-auto: validate` ở prod profile (kèm backfill Customer SQL) | `10`, `12` |
+| ~~9~~ | ~~Flyway/Liquibase + `ddl-auto: validate` ở prod profile~~ | `10`, `12` | DONE: deps + baseline + V2/V3; backfill Customer SQL nằm ở `12-customer.md` |
 | 10 | Rate-limit `/api/auth/login` | `10` |
 | 11 | Đổi `app.jwt.secret` + mật khẩu admin mặc định | `10` |
 | ~~12~~ | ~~Xóa alias legacy `product/brand/type`~~ | `10` | DONE: xóa 3 module + test + public GET; bảng DB cũ drop khi Flyway |

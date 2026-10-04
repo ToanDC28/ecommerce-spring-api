@@ -16,7 +16,12 @@ Bỏ mô hình `Product` bán lẻ (`name, description, price, imageUrl, brand, 
 ## TODO — data model (Material)
 
 `Category(id, code UNIQUE [CAT-THEP-TAM], name, parent_id?, isActive)` — e.g. Thép tấm > Thép CT3; Bu-lông > Bu-lông M20; Dầu mỡ > Dầu thủy lực; Vòng bi > SKF.
-`Material(id, sku UNIQUE [VT-THEP-CT3-10MM], name, category_id, brand? (text/hãng phụ tùng, optional), unit[CAI, KG, MET, LIT, BO, HOP, CUON], costPrice, sellPrice (nullable nếu chỉ dùng nội bộ), stockQty (chỉ đọc, update qua 04/05/11), minStock, location (kệ A1...), imageUrl? (optional), isActive)`
+`Material(id, sku UNIQUE [VT-THEP-CT3-10MM], name, category_id, brand?, unit, costPrice, sellPrice?, stockQty (read-only), minStock, location?, imageUrl?, isActive,
+  materialGrade? (mác: CT3/C45/Inox 304), standard? (JIS/ASTM/TCVN/DIN), spec? (quy cách chính: M12x50, 10x1500x6000),
+  thicknessMm?/widthMm?/lengthMm?/diameterMm? (số thực, mm), strengthGrade? (4.8/8.8/10.9/12.9),
+  detail? (TEXT: bước ren, lớp mạ, xử lý nhiệt...))`
+- Tất cả 9 trường spec đều optional (tạo không cần nhập); update chỉ set field non-null.
+- Lọc: `keyword` khớp cả `spec`; `materialGrade` lọc chính xác theo mác.
 - `sku` unique; `(category, name, spec)` nên unique logic để tránh trùng quy cách.
 - `unit` hiện tại: `CAI, KG, MET, LIT, BO, HOP, CUON` (`MaterialUnit`); phát sinh thép tấm/thanh thì bổ sung `TAM, THANH, M2` thay vì quy đổi thủ công.
 - `sellPrice` chỉ dùng khi bán lẻ (06); vật tư chỉ dùng nội bộ có thể để null.

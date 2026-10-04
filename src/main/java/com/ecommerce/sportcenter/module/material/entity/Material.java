@@ -14,7 +14,8 @@ import org.hibernate.annotations.SQLRestriction;
 @Table(name = "material", indexes = {
         @Index(name = "idx_material_sku", columnList = "sku"),
         @Index(name = "idx_material_name", columnList = "name"),
-        @Index(name = "idx_material_category", columnList = "category_id")
+        @Index(name = "idx_material_category", columnList = "category_id"),
+        @Index(name = "idx_material_grade", columnList = "material_grade")
 }, uniqueConstraints = {
         @UniqueConstraint(name = "uk_material_sku", columnNames = {"sku"})
 })
@@ -39,6 +40,35 @@ public class Material extends BaseEntity {
 
     @Column(name = "brand", length = 100)
     private String brand; // hãng phụ tùng, optional text
+
+    // ---- Thông số kỹ thuật chung của vật liệu kim loại (tất cả optional) ----
+
+    @Column(name = "material_grade", length = 50)
+    private String materialGrade; // mác: CT3, SS400, C45, SKD11, Inox 304...
+
+    @Column(name = "standard", length = 50)
+    private String standard; // tiêu chuẩn: JIS, ASTM A36, TCVN, DIN...
+
+    @Column(name = "spec", length = 255)
+    private String spec; // quy cách chính hiển thị/tìm nhanh: M12x50, 10x1500x6000
+
+    @Column(name = "thickness_mm")
+    private Double thicknessMm; // dày (thép tấm/ống)
+
+    @Column(name = "width_mm")
+    private Double widthMm; // rộng (thép tấm)
+
+    @Column(name = "length_mm")
+    private Double lengthMm; // dài (thép cây, bu-lông)
+
+    @Column(name = "diameter_mm")
+    private Double diameterMm; // đường kính (bu-lông M12, ống Ø114)
+
+    @Column(name = "strength_grade", length = 20)
+    private String strengthGrade; // cấp bền: 4.8, 8.8, 10.9, 12.9
+
+    @Column(name = "detail", columnDefinition = "TEXT")
+    private String detail; // còn lại: bước ren, lớp mạ, xử lý nhiệt, ghi chú kỹ thuật...
 
     @Enumerated(EnumType.STRING)
     @Column(name = "unit", nullable = false, length = 20)

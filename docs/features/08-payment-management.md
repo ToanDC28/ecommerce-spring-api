@@ -15,7 +15,7 @@ Invoice update on `SUCCESS`: `paidAmount += amount`; `PAID` if `paidAmount >= gr
 
 Trả 1 phần + ghi nợ (nghiệp vụ chính tiệm): khách được trả nhiều lần trên cùng invoice — mỗi lần thu là 1 Payment row, `paidAmount` cộng dồn, còn nợ = `grandTotal - paidAmount`. Invoice ở `PARTIAL` tới khi trả hết → `PAID`; quá `dueDate` vẫn còn nợ → `OVERDUE` (job hằng đêm ở 07). Dư nợ theo khách xem ở `GET /api/reports/customer-debt` (ưu tiên mã KH ở 12, fallback snapshot) — phase 2 gom Customer master (ĐÃ XONG ở 12).
 
-Cọc trước (`AdvanceDeposit`, DONE): ghi `POST /api/advances {customerId, workOrderId?, salesOrderId?, amount, method}` khi khách cọc (thường 30-50% lúc CONFIRM) → `POST /api/advances/{id}/apply {invoiceId}` cấn trừ toàn bộ vào invoice (cùng khách, còn nợ >= tiền cọc; sinh Payment giữ method/ref gốc). Hủy cọc chỉ khi `ACTIVE`.
+Cọc trước (`AdvanceDeposit`, DONE): ghi `POST /api/advances {workOrderId XOR salesOrderId, amount, method}` từ màn chi tiết đơn (customer suy ra từ đơn, UI tạo khách trước nếu chưa có) → khi xuất invoice WORK/SALES, cọc ACTIVE của đúng đơn **tự cấn nguyên cục** như 1 lần trả tiền (cọc nào lớn hơn số còn nợ thì giữ lại); `POST /api/advances/{id}/apply {invoiceId}` để cấn tay khi cần (cùng quy tắc). Hủy cọc chỉ khi `ACTIVE`.
 
 Tiền mặt (CASH — luồng chính tiệm nhỏ): thu tại quầy, ghi `receivedBy` + `note` (vd "khách trả đủ", "thối lại 50k"); không cần `transactionRef`. Cuối ngày đối soát theo báo cáo `GET /api/payments/summary` (tổng CASH/BANK theo ngày).
 

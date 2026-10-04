@@ -2,7 +2,10 @@ package com.ecommerce.sportcenter.module.payment.service.impl;
 
 import com.ecommerce.sportcenter.exception.BusinessValidationException;
 import com.ecommerce.sportcenter.module.customer.entity.Customer;
-import com.ecommerce.sportcenter.module.customer.repository.CustomerRepository;
+import com.ecommerce.sportcenter.module.sales.repository.SalesOrderRepository;
+import com.ecommerce.sportcenter.module.workorder.entity.WorkOrder;
+import com.ecommerce.sportcenter.module.workorder.entity.WorkOrderStatus;
+import com.ecommerce.sportcenter.module.workorder.repository.WorkOrderRepository;
 import com.ecommerce.sportcenter.module.invoice.dto.response.InvoiceResponse;
 import com.ecommerce.sportcenter.module.invoice.entity.Invoice;
 import com.ecommerce.sportcenter.module.invoice.entity.InvoiceStatus;
@@ -42,7 +45,9 @@ class AdvanceServiceImplTest {
     @Mock
     private AdvanceDepositRepository advanceRepository;
     @Mock
-    private CustomerRepository customerRepository;
+    private WorkOrderRepository workOrderRepository;
+    @Mock
+    private SalesOrderRepository salesOrderRepository;
     @Mock
     private InvoiceRepository invoiceRepository;
     @Mock
@@ -65,7 +70,11 @@ class AdvanceServiceImplTest {
         @Test
         @DisplayName("success cash advance")
         void success() {
-            when(customerRepository.findById(1)).thenReturn(Optional.of(customer()));
+            var wo = WorkOrder.builder().id(1).code("WO-2026-0001")
+                    .type(com.ecommerce.sportcenter.module.workorder.entity.WorkOrderType.REPAIR)
+                    .customer(customer()).customerName("Anh Ba")
+                    .status(WorkOrderStatus.CONFIRMED).build();
+            when(workOrderRepository.findById(1)).thenReturn(Optional.of(wo));
             when(advanceRepository.count()).thenReturn(0L);
             when(advanceRepository.existsByCode(any())).thenReturn(false);
             when(advanceRepository.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -73,7 +82,7 @@ class AdvanceServiceImplTest {
                     .thenReturn(AdvanceResponse.builder().code("ADV-2026-0001").build());
 
             var result = service.create(CreateAdvanceRequest.builder()
-                    .customerId(1).amount(2000000L).method(PaymentMethod.CASH).note("Cọc 30%").build(), "cashier01");
+                    .workOrderId(1).amount(2000000L).method(PaymentMethod.CASH).note("Cọc 30%").build(), "cashier01");
 
             assertThat(result.getCode()).isEqualTo("ADV-2026-0001");
         }
@@ -81,12 +90,30 @@ class AdvanceServiceImplTest {
         @Test
         @DisplayName("reject BANK without ref")
         void bankNoRef() {
-            when(customerRepository.findById(1)).thenReturn(Optional.of(customer()));
+            var wo = WorkOrder.builder().id(1).code("WO-2026-0001")
+                    .type(com.ecommerce.sportcenter.module.workorder.entity.WorkOrderType.REPAIR)
+                    .customer(customer()).customerName("Anh Ba")
+                    .status(WorkOrderStatus.CONFIRMED).build();
+            when(workOrderRepository.findById(1)).thenReturn(Optional.of(wo));
 
             assertThatThrownBy(() -> service.create(CreateAdvanceRequest.builder()
-                    .customerId(1).amount(2000000L).method(PaymentMethod.BANK_TRANSFER).build(), "cashier01"))
+                    .workOrderId(1).amount(2000000L).method(PaymentMethod.BANK_TRANSFER).build(), "cashier01"))
                     .isInstanceOf(BusinessValidationException.class)
                     .hasMessageContaining("Transaction ref");
+        }
+    }
+
+        @Test
+        @DisplayName("reject when neither/both orders linked")
+        void xorLink() {
+            assertThatThrownBy(() -> service.create(CreateAdvanceRequest.builder()
+                    .amount(1000000L).method(PaymentMethod.CASH).build(), "cashier01"))
+                    .isInstanceOf(BusinessValidationException.class)
+                    .hasMessageContaining("exactly one");
+            assertThatThrownBy(() -> service.create(CreateAdvanceRequest.builder()
+                    .workOrderId(1).salesOrderId(2).amount(1000000L).method(PaymentMethod.CASH).build(), "cashier01"))
+                    .isInstanceOf(BusinessValidationException.class)
+                    .hasMessageContaining("exactly one");
         }
     }
 
@@ -98,9 +125,10 @@ class AdvanceServiceImplTest {
         @DisplayName("success offsets invoice, marks APPLIED")
         void success() {
             var advance = AdvanceDeposit.builder().id(1).code("ADV-2026-0001").customer(customer())
+                    .workOrderId(1).workOrderCode("WO-2026-0001")
                     .amount(2000000L).method(PaymentMethod.CASH).status(AdvanceStatus.ACTIVE).build();
             var invoice = Invoice.builder().id(5).code("INV-1").type(InvoiceType.WORK)
-                    .customerId(1).customerName("Anh Ba")
+                    .workOrderId(1).workOrderCode("WO-2026-0001").customerId(1).customerName("Anh Ba")
                     .grandTotal(5000000L).paidAmount(0L).status(InvoiceStatus.ISSUED).build();
             when(advanceRepository.findById(1)).thenReturn(Optional.of(advance));
             when(invoiceRepository.findById(5)).thenReturn(Optional.of(invoice));
@@ -115,19 +143,20 @@ class AdvanceServiceImplTest {
         }
 
         @Test
-        @DisplayName("reject different customer")
-        void differentCustomer() {
+        @DisplayName("reject invoice of another order")
+        void differentOrder() {
             var advance = AdvanceDeposit.builder().id(1).code("ADV-1").customer(customer())
+                    .workOrderId(1).workOrderCode("WO-2026-0001")
                     .amount(1000000L).method(PaymentMethod.CASH).status(AdvanceStatus.ACTIVE).build();
             var invoice = Invoice.builder().id(5).code("INV-1").type(InvoiceType.WORK)
-                    .customerId(2).customerName("Chị Tư")
+                    .workOrderId(2).workOrderCode("WO-2026-0002").customerId(1).customerName("Anh Ba")
                     .grandTotal(5000000L).paidAmount(0L).status(InvoiceStatus.ISSUED).build();
             when(advanceRepository.findById(1)).thenReturn(Optional.of(advance));
             when(invoiceRepository.findById(5)).thenReturn(Optional.of(invoice));
 
             assertThatThrownBy(() -> service.apply(1, ApplyAdvanceRequest.builder().invoiceId(5).build()))
                     .isInstanceOf(BusinessValidationException.class)
-                    .hasMessageContaining("another customer");
+                    .hasMessageContaining("belongs to work order WO-2026-0001");
             verify(paymentService, never()).pay(any(), any(), any());
         }
 
@@ -135,9 +164,10 @@ class AdvanceServiceImplTest {
         @DisplayName("reject when advance exceeds remaining")
         void exceedsRemaining() {
             var advance = AdvanceDeposit.builder().id(1).code("ADV-1").customer(customer())
+                    .workOrderId(1).workOrderCode("WO-2026-0001")
                     .amount(9000000L).method(PaymentMethod.CASH).status(AdvanceStatus.ACTIVE).build();
             var invoice = Invoice.builder().id(5).code("INV-1").type(InvoiceType.WORK)
-                    .customerId(1).customerName("Anh Ba")
+                    .workOrderId(1).workOrderCode("WO-2026-0001").customerId(1).customerName("Anh Ba")
                     .grandTotal(5000000L).paidAmount(0L).status(InvoiceStatus.ISSUED).build();
             when(advanceRepository.findById(1)).thenReturn(Optional.of(advance));
             when(invoiceRepository.findById(5)).thenReturn(Optional.of(invoice));
@@ -145,6 +175,53 @@ class AdvanceServiceImplTest {
             assertThatThrownBy(() -> service.apply(1, ApplyAdvanceRequest.builder().invoiceId(5).build()))
                     .isInstanceOf(BusinessValidationException.class)
                     .hasMessageContaining("exceeds invoice remaining");
+        }
+    }
+
+    @Nested
+    @DisplayName("autoApply():")
+    class AutoApply {
+
+        @Test
+        @DisplayName("applies fitting advances, skips oversized, stops when paid")
+        void fittingOnly() {
+            var fit = AdvanceDeposit.builder().id(1).code("ADV-1").customer(customer())
+                    .workOrderId(1).workOrderCode("WO-2026-0001")
+                    .amount(2000000L).method(PaymentMethod.CASH).status(AdvanceStatus.ACTIVE).build();
+            var big = AdvanceDeposit.builder().id(2).code("ADV-2").customer(customer())
+                    .workOrderId(1).workOrderCode("WO-2026-0001")
+                    .amount(9000000L).method(PaymentMethod.CASH).status(AdvanceStatus.ACTIVE).build();
+            var invoice = Invoice.builder().id(5).code("INV-1").type(InvoiceType.WORK)
+                    .workOrderId(1).workOrderCode("WO-2026-0001").customerId(1).customerName("Anh Ba")
+                    .grandTotal(5000000L).paidAmount(0L).status(InvoiceStatus.DRAFT).build();
+            when(invoiceRepository.findById(5)).thenReturn(Optional.of(invoice));
+            when(advanceRepository.findByWorkOrderIdAndStatusOrderByIdAsc(1, AdvanceStatus.ACTIVE))
+                    .thenReturn(new java.util.ArrayList<>(java.util.List.of(fit, big)));
+            when(advanceRepository.findById(1)).thenReturn(Optional.of(fit));
+            when(paymentService.pay(eq(5), any(), any())).thenAnswer(i -> {
+                // mô phỏng pay(): cộng paidAmount như thật để vòng sau thấy còn nợ giảm
+                invoice.setPaidAmount(invoice.getPaidAmount() + 2000000L);
+                return PaymentResponse.builder().amount(2000000L).build();
+            });
+
+            assertThat(service.autoApply(5)).isEqualTo(1);
+            assertThat(fit.getStatus()).isEqualTo(AdvanceStatus.APPLIED);
+            assertThat(big.getStatus()).isEqualTo(AdvanceStatus.ACTIVE); // 9tr > còn nợ 3tr -> giữ lại
+            verify(paymentService, org.mockito.Mockito.times(1)).pay(eq(5), any(), any());
+        }
+
+        @Test
+        @DisplayName("no advances of the order -> 0")
+        void none() {
+            var invoice = Invoice.builder().id(5).code("INV-1").type(InvoiceType.WORK)
+                    .workOrderId(9).workOrderCode("WO-9").customerId(1)
+                    .grandTotal(5000000L).paidAmount(0L).status(InvoiceStatus.DRAFT).build();
+            when(invoiceRepository.findById(5)).thenReturn(Optional.of(invoice));
+            when(advanceRepository.findByWorkOrderIdAndStatusOrderByIdAsc(9, AdvanceStatus.ACTIVE))
+                    .thenReturn(java.util.List.of());
+
+            assertThat(service.autoApply(5)).isEqualTo(0);
+            verify(paymentService, never()).pay(any(), any(), any());
         }
     }
 }

@@ -4,11 +4,10 @@ import com.ecommerce.sportcenter.exception.BusinessValidationException;
 import com.ecommerce.sportcenter.exception.ResourceNotFoundException;
 import com.ecommerce.sportcenter.module.base.dto.response.PageResponse;
 import com.ecommerce.sportcenter.module.customer.entity.Customer;
-import com.ecommerce.sportcenter.module.customer.repository.CustomerRepository;
-import com.ecommerce.sportcenter.module.payment.dto.request.CreatePaymentRequest;
 import com.ecommerce.sportcenter.module.invoice.entity.Invoice;
 import com.ecommerce.sportcenter.module.invoice.entity.InvoiceStatus;
 import com.ecommerce.sportcenter.module.invoice.repository.InvoiceRepository;
+import com.ecommerce.sportcenter.module.payment.dto.request.CreatePaymentRequest;
 import com.ecommerce.sportcenter.module.payment.dto.mapper.AdvanceMapper;
 import com.ecommerce.sportcenter.module.payment.dto.request.ApplyAdvanceRequest;
 import com.ecommerce.sportcenter.module.payment.dto.request.CreateAdvanceRequest;
@@ -21,6 +20,8 @@ import com.ecommerce.sportcenter.module.payment.entity.PaymentMethod;
 import com.ecommerce.sportcenter.module.payment.repository.AdvanceDepositRepository;
 import com.ecommerce.sportcenter.module.payment.service.AdvanceService;
 import com.ecommerce.sportcenter.module.payment.service.PaymentService;
+import com.ecommerce.sportcenter.module.sales.repository.SalesOrderRepository;
+import com.ecommerce.sportcenter.module.workorder.repository.WorkOrderRepository;
 import com.ecommerce.sportcenter.utils.specification.SpecificationBuilder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,13 +30,16 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class AdvanceServiceImpl implements AdvanceService {
 
     private final AdvanceDepositRepository advanceRepository;
-    private final CustomerRepository customerRepository;
+    private final WorkOrderRepository workOrderRepository;
+    private final SalesOrderRepository salesOrderRepository;
     private final InvoiceRepository invoiceRepository;
     private final PaymentService paymentService;
     private final AdvanceMapper advanceMapper;
@@ -48,6 +52,12 @@ public class AdvanceServiceImpl implements AdvanceService {
             var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
             if (request.getCustomerId() != null) {
                 predicates.add(builder.equal(root.get("customer").get("id"), request.getCustomerId()));
+            }
+            if (request.getWorkOrderId() != null) {
+                predicates.add(builder.equal(root.get("workOrderId"), request.getWorkOrderId()));
+            }
+            if (request.getSalesOrderId() != null) {
+                predicates.add(builder.equal(root.get("salesOrderId"), request.getSalesOrderId()));
             }
             if (request.getStatus() != null) {
                 predicates.add(builder.equal(root.get("status"), request.getStatus()));
@@ -74,8 +84,39 @@ public class AdvanceServiceImpl implements AdvanceService {
     @Override
     @Transactional
     public AdvanceResponse create(CreateAdvanceRequest request, String username) {
-        Customer customer = customerRepository.findById(request.getCustomerId())
-                .orElseThrow(() -> new ResourceNotFoundException("Customer not found with id: " + request.getCustomerId()));
+        // Cọc bám theo hợp đồng/đơn (bắt buộc đúng 1 link) — customer suy ra từ đơn.
+        boolean hasWo = request.getWorkOrderId() != null;
+        boolean hasSo = request.getSalesOrderId() != null;
+        if (hasWo == hasSo) {
+            throw new BusinessValidationException("Advance must link exactly one work order or sales order");
+        }
+        Customer customer;
+        String orderLabel;
+        if (hasWo) {
+            var wo = workOrderRepository.findById(request.getWorkOrderId())
+                    .orElseThrow(() -> new ResourceNotFoundException("WorkOrder not found with id: " + request.getWorkOrderId()));
+            if (wo.getStatus() == com.ecommerce.sportcenter.module.workorder.entity.WorkOrderStatus.CANCELLED
+                    || wo.getStatus() == com.ecommerce.sportcenter.module.workorder.entity.WorkOrderStatus.INVOICED) {
+                throw new BusinessValidationException("Cannot record advance for " + wo.getStatus() + " work order");
+            }
+            if (wo.getCustomer() == null) {
+                throw new BusinessValidationException("Work order has no customer link (dữ liệu cũ)");
+            }
+            customer = wo.getCustomer();
+            orderLabel = wo.getCode();
+        } else {
+            var so = salesOrderRepository.findById(request.getSalesOrderId())
+                    .orElseThrow(() -> new ResourceNotFoundException("SalesOrder not found with id: " + request.getSalesOrderId()));
+            if (so.getStatus() == com.ecommerce.sportcenter.module.sales.entity.SalesOrderStatus.CANCELLED
+                    || so.getStatus() == com.ecommerce.sportcenter.module.sales.entity.SalesOrderStatus.COMPLETED) {
+                throw new BusinessValidationException("Cannot record advance for " + so.getStatus() + " sales order");
+            }
+            if (so.getCustomer() == null) {
+                throw new BusinessValidationException("Sales order has no customer link (dữ liệu cũ)");
+            }
+            customer = so.getCustomer();
+            orderLabel = so.getCode();
+        }
         if (!customer.isActive()) {
             throw new BusinessValidationException("Customer '" + customer.getCode() + "' is inactive");
         }
@@ -87,7 +128,9 @@ public class AdvanceServiceImpl implements AdvanceService {
                 .code(nextCode())
                 .customer(customer)
                 .workOrderId(request.getWorkOrderId())
+                .workOrderCode(hasWo ? orderLabel : null)
                 .salesOrderId(request.getSalesOrderId())
+                .salesOrderCode(hasWo ? null : orderLabel)
                 .amount(request.getAmount())
                 .method(request.getMethod())
                 .transactionRef(request.getTransactionRef())
@@ -96,7 +139,8 @@ public class AdvanceServiceImpl implements AdvanceService {
                 .note(request.getNote())
                 .build();
         advance = advanceRepository.save(advance);
-        log.info("Advance recorded - code={}, customer={}, amount={}", advance.getCode(), customer.getCode(), advance.getAmount());
+        log.info("Advance recorded - code={}, order={}, customer={}, amount={}",
+                advance.getCode(), orderLabel, customer.getCode(), advance.getAmount());
         return advanceMapper.toResponse(advance);
     }
 
@@ -109,9 +153,19 @@ public class AdvanceServiceImpl implements AdvanceService {
         }
         Invoice invoice = invoiceRepository.findById(request.getInvoiceId())
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice not found with id: " + request.getInvoiceId()));
-        if (invoice.getCustomerId() == null || invoice.getCustomerId() != advance.getCustomer().getId()) {
-            throw new BusinessValidationException("Advance belongs to customer " + advance.getCustomer().getCode()
-                    + " but invoice is for another customer");
+        // Cọc theo đơn nào thì chỉ cấn vào invoice của đúng đơn đó.
+        if (advance.getWorkOrderId() != null) {
+            if (!advance.getWorkOrderId().equals(invoice.getWorkOrderId())) {
+                throw new BusinessValidationException("Advance " + advance.getCode()
+                        + " belongs to work order " + advance.getWorkOrderCode()
+                        + " and cannot offset other invoices");
+            }
+        } else {
+            if (!advance.getSalesOrderId().equals(invoice.getSoId())) {
+                throw new BusinessValidationException("Advance " + advance.getCode()
+                        + " belongs to sales order " + advance.getSalesOrderCode()
+                        + " and cannot offset other invoices");
+            }
         }
         long remaining = invoice.getGrandTotal() - invoice.getPaidAmount();
         if (advance.getAmount() > remaining) {
@@ -136,8 +190,39 @@ public class AdvanceServiceImpl implements AdvanceService {
 
     @Override
     @Transactional
-    public AdvanceResponse cancel(int id) {
-        AdvanceDeposit advance = findOrThrow(id);
+    public int autoApply(int invoiceId) {
+        Invoice invoice = invoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found with id: " + invoiceId));
+        List<AdvanceDeposit> actives;
+        if (invoice.getWorkOrderId() != null) {
+            actives = advanceRepository.findByWorkOrderIdAndStatusOrderByIdAsc(
+                    invoice.getWorkOrderId(), AdvanceStatus.ACTIVE);
+        } else if (invoice.getSoId() != null) {
+            actives = advanceRepository.findBySalesOrderIdAndStatusOrderByIdAsc(
+                    invoice.getSoId(), AdvanceStatus.ACTIVE);
+        } else {
+            return 0;
+        }
+        int applied = 0;
+        for (var advance : actives) {
+            long remaining = invoice.getGrandTotal() - invoice.getPaidAmount();
+            if (remaining <= 0) {
+                break;
+            }
+            if (advance.getAmount() > remaining) {
+                log.info("Advance kept - code={}, amount={} exceeds invoice remaining={}",
+                        advance.getCode(), advance.getAmount(), remaining);
+                continue;
+            }
+            apply(advance.getId(), new ApplyAdvanceRequest(invoiceId));
+            applied++;
+        }
+        return applied;
+    }
+
+    @Override
+    @Transactional
+    public AdvanceResponse cancel(int id) {        AdvanceDeposit advance = findOrThrow(id);
         if (advance.getStatus() != AdvanceStatus.ACTIVE) {
             throw new BusinessValidationException("Only ACTIVE advances can be cancelled (current=" + advance.getStatus() + ")");
         }

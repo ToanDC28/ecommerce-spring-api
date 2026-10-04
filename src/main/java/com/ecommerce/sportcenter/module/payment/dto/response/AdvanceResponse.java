@@ -22,7 +22,9 @@ public class AdvanceResponse {
     private int customerId;
     private String customerName;
     private Integer workOrderId;
+    private String workOrderCode;
     private Integer salesOrderId;
+    private String salesOrderCode;
     private long amount;
     private PaymentMethod method;
     private AdvanceStatus status;

@@ -51,4 +51,32 @@ public class CreateMaterialRequest {
 
     @Schema(example = "Kệ A1", description = "Warehouse location")
     private String location;
+
+    // Thông số kỹ thuật kim loại — tất cả optional
+    @Schema(example = "CT3", description = "Mác vật liệu")
+    private String materialGrade;
+
+    @Schema(example = "JIS G3101", description = "Tiêu chuẩn")
+    private String standard;
+
+    @Schema(example = "10x1500x6000", description = "Quy cách chính hiển thị/tìm nhanh")
+    private String spec;
+
+    @Schema(example = "10", description = "Dày (mm)")
+    private Double thicknessMm;
+
+    @Schema(example = "1500", description = "Rộng (mm)")
+    private Double widthMm;
+
+    @Schema(example = "6000", description = "Dài (mm)")
+    private Double lengthMm;
+
+    @Schema(example = "12", description = "Đường kính (mm)")
+    private Double diameterMm;
+
+    @Schema(example = "8.8", description = "Cấp bền")
+    private String strengthGrade;
+
+    @Schema(example = "Mạ kẽm nhúng nóng", description = "Còn lại: bước ren, lớp mạ, xử lý nhiệt...")
+    private String detail;
 }

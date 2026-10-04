@@ -36,10 +36,16 @@ public class AdvanceDeposit extends BaseEntity {
     private Customer customer;
 
     @Column(name = "work_order_id")
-    private Integer workOrderId; // cọc cho WO nào (optional)
+    private Integer workOrderId; // cọc cho WO nào (bắt buộc 1 trong 2 link)
+
+    @Column(name = "work_order_code", length = 50)
+    private String workOrderCode; // snapshot hiển thị
 
     @Column(name = "sales_order_id")
-    private Integer salesOrderId; // cọc cho SO nào (optional)
+    private Integer salesOrderId; // cọc cho SO nào (bắt buộc 1 trong 2 link)
+
+    @Column(name = "sales_order_code", length = 50)
+    private String salesOrderCode; // snapshot hiển thị
 
     @Column(name = "amount", nullable = false)
     private long amount;

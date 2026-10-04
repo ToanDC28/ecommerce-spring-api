@@ -7,6 +7,7 @@ import com.ecommerce.sportcenter.module.workorder.WorkOrderApiExamples;
 import com.ecommerce.sportcenter.module.workorder.dto.request.ConsumeMaterialRequest;
 import com.ecommerce.sportcenter.module.workorder.dto.request.CreateWorkOrderRequest;
 import com.ecommerce.sportcenter.module.workorder.dto.request.SearchWorkOrderRequest;
+import com.ecommerce.sportcenter.module.workorder.dto.response.WorkOrderAttachmentResponse;
 import com.ecommerce.sportcenter.module.workorder.dto.response.WorkOrderResponse;
 import com.ecommerce.sportcenter.module.workorder.service.WorkOrderService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -15,8 +16,12 @@ import io.swagger.v3.oas.annotations.media.ExampleObject;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.http.MediaType;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/work-orders")
@@ -88,5 +93,24 @@ public class WorkOrderController {
         return ApiResponse.<WorkOrderResponse>builder()
                 .statusCode(200).message("Work order cancelled")
                 .data(workOrderService.cancel(id)).build();
+    }
+
+    @Operation(summary = "Upload ảnh nghiệm thu (JPG/PNG/WEBP, tối đa 10MB)")
+    @PostMapping(value = "/{id}/attachments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAnyAuthority('ORDER_WRITE', 'INVENTORY_WRITE')")
+    public ApiResponse<WorkOrderAttachmentResponse> uploadAttachment(
+            @PathVariable int id,
+            @RequestPart("file") MultipartFile file) {
+        return ApiResponse.<WorkOrderAttachmentResponse>builder()
+                .statusCode(201).message("Photo uploaded successfully")
+                .data(workOrderService.uploadAttachment(id, file, securityService.getCurrentUsername())).build();
+    }
+
+    @Operation(summary = "List ảnh nghiệm thu")
+    @GetMapping("/{id}/attachments")
+    public ApiResponse<List<WorkOrderAttachmentResponse>> attachments(@PathVariable int id) {
+        return ApiResponse.<List<WorkOrderAttachmentResponse>>builder()
+                .statusCode(200).message("Attachments retrieved successfully")
+                .data(workOrderService.attachments(id)).build();
     }
 }

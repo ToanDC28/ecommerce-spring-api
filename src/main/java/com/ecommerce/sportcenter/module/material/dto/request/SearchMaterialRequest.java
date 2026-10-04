@@ -18,7 +18,7 @@ import java.util.Set;
 @AllArgsConstructor
 public class SearchMaterialRequest extends BaseFilterRequest {
 
-    @Schema(example = "thép", description = "Keyword in sku, name")
+    @Schema(example = "thép", description = "Keyword in sku, name, spec")
     private String keyword;
 
     @Schema(example = "VT-THEP", description = "Filter by SKU prefix")
@@ -26,6 +26,9 @@ public class SearchMaterialRequest extends BaseFilterRequest {
 
     @Schema(example = "1", description = "Filter by category id")
     private Integer categoryId;
+
+    @Schema(example = "CT3", description = "Filter by material grade (mác)")
+    private String materialGrade;
 
     @Schema(example = "true", description = "Low stock only (stockQty <= minStock)")
     private Boolean lowStockOnly;

@@ -16,6 +16,7 @@ import com.ecommerce.sportcenter.module.invoice.entity.InvoiceStatus;
 import com.ecommerce.sportcenter.module.invoice.entity.InvoiceType;
 import com.ecommerce.sportcenter.module.invoice.repository.InvoiceRepository;
 import com.ecommerce.sportcenter.module.invoice.service.InvoiceService;
+import com.ecommerce.sportcenter.module.payment.service.AdvanceService;
 import com.ecommerce.sportcenter.module.workorder.entity.WorkOrder;
 import com.ecommerce.sportcenter.module.workorder.entity.WorkOrderStatus;
 import com.ecommerce.sportcenter.module.workorder.repository.WorkOrderMaterialRepository;
@@ -42,6 +43,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final WorkOrderRepository workOrderRepository;
     private final WorkOrderMaterialRepository workOrderMaterialRepository;
     private final CustomerRepository customerRepository;
+    private final AdvanceService advanceService;
     private final InvoiceMapper invoiceMapper;
 
     @Override
@@ -178,6 +180,11 @@ public class InvoiceServiceImpl implements InvoiceService {
         workOrderRepository.save(wo);
 
         log.info("Created WORK invoice - code={}, workOrder={}, grandTotal={}", invoice.getCode(), wo.getCode(), invoice.getGrandTotal());
+        // Cọc của đúng WO tự trừ như tiền trả 1 phần (cọc nào vừa thì apply hết, lớn hơn thì giữ lại).
+        int autoApplied = advanceService.autoApply(invoice.getId());
+        if (autoApplied > 0) {
+            log.info("Auto-applied {} advances to invoice {}", autoApplied, invoice.getCode());
+        }
         return invoiceMapper.toResponse(invoice);
     }
 
@@ -294,6 +301,11 @@ public class InvoiceServiceImpl implements InvoiceService {
         invoice.setGrandTotal(subTotal + vatAmount);
         invoice = invoiceRepository.save(invoice);
         log.info("Created SALES invoice - code={}, ref={}, grandTotal={}", invoice.getCode(), request.getRefCode(), invoice.getGrandTotal());
+        // Cọc của đúng SO (nếu có) tự trừ như tiền trả 1 phần.
+        int autoApplied = advanceService.autoApply(invoice.getId());
+        if (autoApplied > 0) {
+            log.info("Auto-applied {} advances to invoice {}", autoApplied, invoice.getCode());
+        }
         return invoiceMapper.toResponse(invoice);
     }
 

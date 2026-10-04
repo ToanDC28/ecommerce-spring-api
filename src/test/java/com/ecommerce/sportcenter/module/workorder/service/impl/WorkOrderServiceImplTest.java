@@ -34,6 +34,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,6 +49,10 @@ class WorkOrderServiceImplTest {
     private MaterialRepository materialRepository;
     @Mock
     private InventoryService inventoryService;
+    @Mock
+    private com.ecommerce.sportcenter.module.workorder.repository.WorkOrderAttachmentRepository attachmentRepository;
+    @Mock
+    private com.ecommerce.sportcenter.module.workorder.service.impl.ZiplineClient ziplineClient;
     @Mock
     private WorkOrderMapper workOrderMapper;
 
@@ -80,7 +85,7 @@ class WorkOrderServiceImplTest {
             when(workOrderRepository.save(wo)).thenReturn(wo);
             when(workOrderRepository.findById(1)).thenReturn(Optional.of(wo));
             var expected = WorkOrderResponse.builder().id(1).code("WO-2026-0001").build();
-            when(workOrderMapper.toResponse(any())).thenReturn(expected);
+            when(workOrderMapper.toResponse(any(com.ecommerce.sportcenter.module.workorder.entity.WorkOrder.class))).thenReturn(expected);
 
             var request = ConsumeMaterialRequest.builder()
                     .items(List.of(ConsumeMaterialRequest.ConsumeLine.builder().materialId(1).qty(5L).build()))
@@ -116,12 +121,84 @@ class WorkOrderServiceImplTest {
         void success() {
             wo.setStatus(WorkOrderStatus.IN_PROGRESS);
             when(workOrderRepository.findById(1)).thenReturn(Optional.of(wo));
+            when(attachmentRepository.countByWorkOrder_Id(1)).thenReturn(2L);
             when(workOrderRepository.save(any())).thenAnswer(i -> i.getArgument(0));
-            when(workOrderMapper.toResponse(any())).thenReturn(WorkOrderResponse.builder().id(1).build());
+            when(workOrderMapper.toResponse(any(com.ecommerce.sportcenter.module.workorder.entity.WorkOrder.class))).thenReturn(WorkOrderResponse.builder().id(1).build());
 
             service.done(1);
 
             assertThat(wo.getStatus()).isEqualTo(WorkOrderStatus.DONE);
+        }
+
+        @Test
+        @DisplayName("reject when no acceptance photo")
+        void noPhoto() {
+            wo.setStatus(WorkOrderStatus.IN_PROGRESS);
+            when(workOrderRepository.findById(1)).thenReturn(Optional.of(wo));
+            when(attachmentRepository.countByWorkOrder_Id(1)).thenReturn(0L);
+
+            assertThatThrownBy(() -> service.done(1))
+                    .isInstanceOf(BusinessValidationException.class)
+                    .hasMessageContaining("ảnh nghiệm thu");
+            verify(workOrderRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("uploadAttachment():")
+    class Upload {
+
+        @Test
+        @DisplayName("reject empty file and non-image")
+        void validation() {
+            wo.setStatus(WorkOrderStatus.IN_PROGRESS);
+            when(workOrderRepository.findById(1)).thenReturn(Optional.of(wo));
+            var empty = new org.springframework.mock.web.MockMultipartFile(
+                    "file", "a.jpg", "image/jpeg", new byte[0]);
+
+            assertThatThrownBy(() -> service.uploadAttachment(1, empty, "admin"))
+                    .isInstanceOf(BusinessValidationException.class)
+                    .hasMessageContaining("empty");
+
+            var pdf = new org.springframework.mock.web.MockMultipartFile(
+                    "file", "a.pdf", "application/pdf", new byte[]{1, 2, 3});
+            assertThatThrownBy(() -> service.uploadAttachment(1, pdf, "admin"))
+                    .isInstanceOf(BusinessValidationException.class)
+                    .hasMessageContaining("JPG/PNG/WEBP");
+        }
+
+        @Test
+        @DisplayName("reject upload on DONE order")
+        void wrongStatus() {
+            wo.setStatus(WorkOrderStatus.DONE);
+            when(workOrderRepository.findById(1)).thenReturn(Optional.of(wo));
+            var jpg = new org.springframework.mock.web.MockMultipartFile(
+                    "file", "a.jpg", "image/jpeg", new byte[]{1, 2, 3});
+
+            assertThatThrownBy(() -> service.uploadAttachment(1, jpg, "admin"))
+                    .isInstanceOf(BusinessValidationException.class)
+                    .hasMessageContaining("CONFIRMED/IN_PROGRESS");
+        }
+
+        @Test
+        @DisplayName("success uploads to Zipline and saves URL")
+        void success() {
+            wo.setStatus(WorkOrderStatus.IN_PROGRESS);
+            when(workOrderRepository.findById(1)).thenReturn(Optional.of(wo));
+            when(ziplineClient.upload(any(), any(), any())).thenReturn("http://img.local/u/abc.jpg");
+            when(attachmentRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+
+            var jpg = new org.springframework.mock.web.MockMultipartFile(
+                    "file", "may-xuc.jpg", "image/jpeg", new byte[]{1, 2, 3});
+            // mapper is a mock here; verify persistence instead of mapping
+            service.uploadAttachment(1, jpg, "admin");
+
+            var captor = org.mockito.ArgumentCaptor.forClass(
+                    com.ecommerce.sportcenter.module.workorder.entity.WorkOrderAttachment.class);
+            verify(attachmentRepository).save(captor.capture());
+            assertThat(captor.getValue().getUrl()).isEqualTo("http://img.local/u/abc.jpg");
+            assertThat(captor.getValue().getFileName()).isEqualTo("may-xuc.jpg");
+            verify(ziplineClient).upload(any(), eq("may-xuc.jpg"), eq("image/jpeg"));
         }
     }
 }

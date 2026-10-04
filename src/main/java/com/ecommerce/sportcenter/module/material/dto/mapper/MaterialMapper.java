@@ -30,6 +30,15 @@ public class MaterialMapper {
                 .location(m.getLocation())
                 .active(m.isActive())
                 .lowStock(m.getStockQty() <= m.getMinStock())
+                .materialGrade(m.getMaterialGrade())
+                .standard(m.getStandard())
+                .spec(m.getSpec())
+                .thicknessMm(m.getThicknessMm())
+                .widthMm(m.getWidthMm())
+                .lengthMm(m.getLengthMm())
+                .diameterMm(m.getDiameterMm())
+                .strengthGrade(m.getStrengthGrade())
+                .detail(m.getDetail())
                 .build();
     }
 
@@ -46,6 +55,15 @@ public class MaterialMapper {
                 .sellPrice(r.getSellPrice())
                 .minStock(r.getMinStock() == null ? 0L : r.getMinStock())
                 .location(r.getLocation())
+                .materialGrade(r.getMaterialGrade())
+                .standard(r.getStandard())
+                .spec(r.getSpec())
+                .thicknessMm(r.getThicknessMm())
+                .widthMm(r.getWidthMm())
+                .lengthMm(r.getLengthMm())
+                .diameterMm(r.getDiameterMm())
+                .strengthGrade(r.getStrengthGrade())
+                .detail(r.getDetail())
                 .stockQty(0L)
                 .active(true)
                 .build();
@@ -75,6 +93,33 @@ public class MaterialMapper {
         }
         if (r.getLocation() != null) {
             m.setLocation(r.getLocation());
+        }
+        if (r.getMaterialGrade() != null) {
+            m.setMaterialGrade(r.getMaterialGrade());
+        }
+        if (r.getStandard() != null) {
+            m.setStandard(r.getStandard());
+        }
+        if (r.getSpec() != null) {
+            m.setSpec(r.getSpec());
+        }
+        if (r.getThicknessMm() != null) {
+            m.setThicknessMm(r.getThicknessMm());
+        }
+        if (r.getWidthMm() != null) {
+            m.setWidthMm(r.getWidthMm());
+        }
+        if (r.getLengthMm() != null) {
+            m.setLengthMm(r.getLengthMm());
+        }
+        if (r.getDiameterMm() != null) {
+            m.setDiameterMm(r.getDiameterMm());
+        }
+        if (r.getStrengthGrade() != null) {
+            m.setStrengthGrade(r.getStrengthGrade());
+        }
+        if (r.getDetail() != null) {
+            m.setDetail(r.getDetail());
         }
         if (r.getActive() != null) {
             m.setActive(r.getActive());

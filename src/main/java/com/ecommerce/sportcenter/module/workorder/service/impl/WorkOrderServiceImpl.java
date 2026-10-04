@@ -14,10 +14,13 @@ import com.ecommerce.sportcenter.module.workorder.dto.mapper.WorkOrderMapper;
 import com.ecommerce.sportcenter.module.workorder.dto.request.ConsumeMaterialRequest;
 import com.ecommerce.sportcenter.module.workorder.dto.request.CreateWorkOrderRequest;
 import com.ecommerce.sportcenter.module.workorder.dto.request.SearchWorkOrderRequest;
+import com.ecommerce.sportcenter.module.workorder.dto.response.WorkOrderAttachmentResponse;
 import com.ecommerce.sportcenter.module.workorder.dto.response.WorkOrderResponse;
 import com.ecommerce.sportcenter.module.workorder.entity.WorkOrder;
+import com.ecommerce.sportcenter.module.workorder.entity.WorkOrderAttachment;
 import com.ecommerce.sportcenter.module.workorder.entity.WorkOrderMaterial;
 import com.ecommerce.sportcenter.module.workorder.entity.WorkOrderStatus;
+import com.ecommerce.sportcenter.module.workorder.repository.WorkOrderAttachmentRepository;
 import com.ecommerce.sportcenter.module.workorder.repository.WorkOrderMaterialRepository;
 import com.ecommerce.sportcenter.module.workorder.repository.WorkOrderRepository;
 import com.ecommerce.sportcenter.module.workorder.service.WorkOrderService;
@@ -28,10 +31,14 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -40,11 +47,16 @@ public class WorkOrderServiceImpl implements WorkOrderService {
 
     private final WorkOrderRepository workOrderRepository;
     private final WorkOrderMaterialRepository materialLineRepository;
+    private final WorkOrderAttachmentRepository attachmentRepository;
     private final MaterialRepository materialRepository;
     private final CustomerRepository customerRepository;
     private final CustomerService customerService;
     private final InventoryService inventoryService;
+    private final ZiplineClient ziplineClient;
     private final WorkOrderMapper workOrderMapper;
+
+    private static final long MAX_FILE_BYTES = 10L * 1024 * 1024; // 10MB
+    private static final Set<String> ALLOWED_IMAGE_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
 
     @Override
     @Transactional(readOnly = true)
@@ -92,7 +104,8 @@ public class WorkOrderServiceImpl implements WorkOrderService {
     @Transactional(readOnly = true)
     public WorkOrderResponse getById(int id) {
         log.info("Get work order by id - id={}", id);
-        return workOrderMapper.toResponse(findOrThrow(id));
+        WorkOrder wo = findOrThrow(id);
+        return workOrderMapper.toResponse(wo, attachmentRepository.findByWorkOrder_Id(id));
     }
 
     @Override
@@ -224,8 +237,12 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         if (wo.getStatus() != WorkOrderStatus.IN_PROGRESS && wo.getStatus() != WorkOrderStatus.CONFIRMED) {
             throw new BusinessValidationException("Only CONFIRMED/IN_PROGRESS work order can be done");
         }
+        if (attachmentRepository.countByWorkOrder_Id(id) == 0) {
+            throw new BusinessValidationException("Chụp ít nhất 1 ảnh nghiệm thu trước khi chốt (máy đã sửa xong)");
+        }
         wo.setStatus(WorkOrderStatus.DONE);
-        return workOrderMapper.toResponse(workOrderRepository.save(wo));
+        wo = workOrderRepository.save(wo);
+        return workOrderMapper.toResponse(wo, attachmentRepository.findByWorkOrder_Id(id));
     }
 
     @Override
@@ -237,6 +254,51 @@ public class WorkOrderServiceImpl implements WorkOrderService {
         }
         wo.setStatus(WorkOrderStatus.CANCELLED);
         return workOrderMapper.toResponse(workOrderRepository.save(wo));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<WorkOrderAttachmentResponse> attachments(int id) {
+        findOrThrow(id);
+        return attachmentRepository.findByWorkOrder_Id(id).stream()
+                .map(workOrderMapper::toAttachmentResponse).toList();
+    }
+
+    @Override
+    @Transactional
+    public WorkOrderAttachmentResponse uploadAttachment(int id, MultipartFile file, String username) {
+        WorkOrder wo = findOrThrow(id);
+        if (wo.getStatus() != WorkOrderStatus.CONFIRMED && wo.getStatus() != WorkOrderStatus.IN_PROGRESS) {
+            throw new BusinessValidationException("Only CONFIRMED/IN_PROGRESS work order accepts photos (current=" + wo.getStatus() + ")");
+        }
+        if (file == null || file.isEmpty()) {
+            throw new BusinessValidationException("File is empty");
+        }
+        if (file.getSize() > MAX_FILE_BYTES) {
+            throw new BusinessValidationException("File exceeds 10MB");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !ALLOWED_IMAGE_TYPES.contains(contentType.toLowerCase())) {
+            throw new BusinessValidationException("Only JPG/PNG/WEBP photos are accepted");
+        }
+        try {
+            // Đẩy sang Zipline (giữ API key ở server), DB chỉ lưu URL.
+            String url = ziplineClient.upload(file.getBytes(),
+                    file.getOriginalFilename() == null ? "photo.jpg" : file.getOriginalFilename(),
+                    contentType);
+            WorkOrderAttachment attachment = attachmentRepository.save(WorkOrderAttachment.builder()
+                    .workOrder(wo)
+                    .fileName(file.getOriginalFilename() == null ? url : file.getOriginalFilename())
+                    .url(url)
+                    .contentType(contentType)
+                    .sizeBytes(file.getSize())
+                    .uploadedBy(username)
+                    .build());
+            log.info("WO photo uploaded - wo={}, url={}", wo.getCode(), url);
+            return workOrderMapper.toAttachmentResponse(attachment);
+        } catch (IOException e) {
+            throw new BusinessValidationException("Cannot read upload file: " + e.getMessage());
+        }
     }
 
     private WorkOrder findOrThrow(int id) {

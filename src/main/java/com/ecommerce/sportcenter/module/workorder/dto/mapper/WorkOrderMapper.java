@@ -1,8 +1,10 @@
 package com.ecommerce.sportcenter.module.workorder.dto.mapper;
 
 import com.ecommerce.sportcenter.module.workorder.dto.response.WorkOrderMaterialResponse;
+import com.ecommerce.sportcenter.module.workorder.dto.response.WorkOrderAttachmentResponse;
 import com.ecommerce.sportcenter.module.workorder.dto.response.WorkOrderResponse;
 import com.ecommerce.sportcenter.module.workorder.entity.WorkOrder;
+import com.ecommerce.sportcenter.module.workorder.entity.WorkOrderAttachment;
 import com.ecommerce.sportcenter.module.workorder.entity.WorkOrderMaterial;
 import org.springframework.stereotype.Component;
 
@@ -10,6 +12,10 @@ import org.springframework.stereotype.Component;
 public class WorkOrderMapper {
 
     public WorkOrderResponse toResponse(WorkOrder wo) {
+        return toResponse(wo, java.util.List.of());
+    }
+
+    public WorkOrderResponse toResponse(WorkOrder wo, java.util.List<WorkOrderAttachment> attachments) {
         if (wo == null) {
             return null;
         }
@@ -17,6 +23,8 @@ public class WorkOrderMapper {
                 : wo.getMaterials().stream().map(this::toMaterialResponse).toList();
         long plannedCost = materials.stream().mapToLong(WorkOrderMaterialResponse::getPlannedTotal).sum();
         long actualCost = materials.stream().mapToLong(WorkOrderMaterialResponse::getActualTotal).sum();
+        var files = attachments == null ? java.util.List.<WorkOrderAttachmentResponse>of()
+                : attachments.stream().map(this::toAttachmentResponse).toList();
         return WorkOrderResponse.builder()
                 .id(wo.getId())
                 .createdDate(wo.getCreatedDate())
@@ -36,6 +44,7 @@ public class WorkOrderMapper {
                 .materialPlannedCost(plannedCost)
                 .materialActualCost(actualCost)
                 .materials(materials)
+                .attachments(files)
                 .build();
     }
 
@@ -54,6 +63,20 @@ public class WorkOrderMapper {
                 .unitSellPrice(m.getUnitSellPrice())
                 .plannedTotal(m.getQtyPlanned() * m.getUnitCost())
                 .actualTotal(m.getQtyActual() * m.getUnitCost())
+                .build();
+    }
+
+    public WorkOrderAttachmentResponse toAttachmentResponse(WorkOrderAttachment a) {
+        if (a == null) {
+            return null;
+        }
+        return WorkOrderAttachmentResponse.builder()
+                .id(a.getId())
+                .fileName(a.getFileName())
+                .url(a.getUrl())
+                .contentType(a.getContentType())
+                .sizeBytes(a.getSizeBytes())
+                .uploadedBy(a.getUploadedBy())
                 .build();
     }
 }

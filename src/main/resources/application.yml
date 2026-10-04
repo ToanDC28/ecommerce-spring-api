@@ -22,6 +22,15 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+  flyway:
+    enabled: true
+    # DB hiện có (schema dựng bằng ddl-auto) được baseline 1 lần,
+    # các migration V2+ chạy tiếp. DB mới: chạy 1 lần với ddl-auto update
+    # (profile mặc định) để dựng schema rồi mới bật prod.
+    baseline-on-migrate: true
+    baseline-version: 1
+    locations: classpath:db/migration
+    validate-on-migrate: true
 
 app:
   version: v1
@@ -38,5 +47,22 @@ app:
     bloom-fpp: 0.01
     bloom-rebuild-ms: 3600000 # 1h
 
+  # Ảnh nghiệm thu qua Zipline tự host (docker/shop-zipline).
+  # Setup: mở Zipline tạo admin -> Settings/API keys -> dán token vào đây.
+  zipline:
+    base-url: http://localhost:3001
+    api-key: MTc5MTA5OTQyMTY1Mw==.YzEyNzI2NWQyODNhNTA0ODg0YmI5MzA5LmZlYmZhYTJmMDNjMjdiOTQ2ZGViZTRlNTdkYTY4YWUxOThkOWNkM2IwYjhmNjE2Y2UwZTA4OWU0MmY4NzIxNmMxNTJmMWRhNWQ4ODQzMTNlMGVhOWI5ZDY5OGVlY2M1MGI2Yzg4NzQ4NDJhZTFkMjE5MWQ2Yzg2M2E5M2I1OWE1NzQuMjc1MjI3ODIzODI4YjhkMWMyNTVlNmNiY2EyNGJjNjk=
+
 server:
   port: 9000
+
+---
+# Profile prod: Hibernate chỉ kiểm tra schema (không tự sửa),
+# mọi thay đổi schema đi qua Flyway migration có review.
+spring:
+  config:
+    activate:
+      on-profile: prod
+  jpa:
+    hibernate:
+      ddl-auto: validate

@@ -18,7 +18,7 @@ Nếu bán thì CHỈ bán vật liệu đang có trong kho, không bán sản p
 | 8 | Invoice — WORK/SALES/PURCHASE + manual + OVERDUE job | `07-invoice-management.md` | Done (phase 1; PDF để riêng) | `INVOICE_READ/WRITE` |
 | 9 | Payment management (CASH tại quầy + BANK, trả góp/ghi nợ) | `08-payment-management.md` | Done (phase 1: thu nhiều lần, refund, summary cuối ngày; advance-payment phase 2) | `PAYMENT_MANAGE` |
 | 10 | Salary / HR (bậc lương + chấm công + bảng lương) | `09-salary-hr.md` | Done (phase 1: generate idempotent, approve/reject/pay, scope lương theo user; khoán WO + StaffProfile phase 2) | `PAYROLL_READ/WRITE` |
-| 11 | Reports + platform (8 báo cáo + CORS + audit) | `10-reports-platform.md` | Done (phase 1; Flyway/rate-limit/secret để ops khi deploy) | read theo module |
+| 11 | Reports + platform (8 báo cáo + CORS + audit + Flyway) | `10-reports-platform.md` | Done (phase 1; rate-limit/secret để ops khi deploy) | read theo module |
 | 12 | Customer master (mã KH + nợ theo mã + giá riêng/cọc, không hạn mức) | `12-customer.md` | Done | `CUSTOMER_READ/WRITE` |
 
 ## Current code baseline
@@ -30,11 +30,11 @@ Nếu bán thì CHỈ bán vật liệu đang có trong kho, không bán sản p
 - `module/sales/*` — DONE phase 1 (`SalesOrder` PENDING→CONFIRMED→DELIVERING→COMPLETED, `GoodsIssueNote` xuất/return + quick-sale, auto SALES invoice DRAFT VAT 0, tests).
 - `module/payment/*` — DONE phase 1 (`Payment` CASH/BANK, thu nhiều lần + idempotent ref + khóa bi quan, refund, summary cuối ngày, tests).
 - `module/payroll/*` — DONE phase 1 (`SalaryGrade`, `Attendance` + grade theo tháng, `Payroll` generate/approve/reject/pay, scope theo user, tests; khoán WO + StaffProfile phase 2).
-- `module/product|brand|type/*` — ĐÃ XÓA (client chuyển sang `/api/materials`; bảng DB cũ `product/brand/type` còn lại, drop tay khi chạy Flyway).
+- `module/product|brand|type/*` — ĐÃ XÓA code; bảng DB cũ dọn bằng Flyway V3 (backup trước).
 - `module/supplier/*` — đã xong phase 1 (`code, name, paymentTerm, active, currentDebt`).
 - `module/user/*`, `module/role/*`, `module/auth/*` — DONE phase 1 (RBAC + JWT + refresh/denylist + search role + guard last-admin/self + change/reset password, tests).
 - `module/report/*` — DONE phase 1 (8 báo cáo read-only + tests; cache dashboard phase 2).
-- Platform — DONE phase 1 (CORS localhost, audit createdBy/updatedBy; Flyway/rate-limit/secret để ops/deploy).
+- Platform — DONE phase 1 (CORS localhost, audit createdBy/updatedBy, Flyway baseline + V2/V3; rate-limit/secret để ops/deploy).
 - `module/customer/*` — DONE (mã KH + nợ theo mã/đơn + giá riêng + cọc; backfill SQL trong `12-customer.md`; không quản lý hạn mức).
 - `module/base/security/SecurityConfig.java` — JWT stateless + CORS, `GET /api/materials/**` public.
 - `config/DataSeeder.java` — seeds `ADMIN` (chủ, full quyền) + staff `SALES_STAFF/WAREHOUSE_STAFF/ACCOUNTANT` (no MANAGER, no CLIENT).
@@ -55,7 +55,7 @@ Nếu bán thì CHỈ bán vật liệu đang có trong kho, không bán sản p
 5. ~~Sales vật liệu kho SO + GIN (06)~~ — DONE phase 1 (manual sales-invoice endpoint dồn vào bước hoàn thiện invoice)
 6. ~~Invoice WORK/PURCHASE/SALES auto + manual + OVERDUE (07) + Payment thu/chi (08)~~ — DONE (PDF để riêng)
 7. ~~Payroll (09)~~ — DONE phase 1
-8. ~~Reports + platform (10)~~ — DONE phase 1 (Flyway/rate-limit/secret + PDF invoice + StaffProfile để phase 2/ops)
+8. ~~Reports + platform (10)~~ — DONE phase 1 (Flyway wired; rate-limit/secret + PDF invoice + StaffProfile để phase 2/ops)
 
 ## Conventions used in all specs
 

@@ -15,10 +15,17 @@ public interface AdvanceService {
     AdvanceResponse create(CreateAdvanceRequest request, String username);
 
     /**
-     * Cấn trừ toàn bộ cọc vào invoice (cùng khách, invoice còn nợ >= tiền cọc).
-     * Sinh Payment + đánh dấu APPLIED, atomic 1 transaction.
+     * Cấn trừ cọc vào invoice (cùng đơn): cấn NGUYÊN CỤC, invoice còn nợ
+     * phải >= tiền cọc, coi như 1 lần trả tiền.
      */
     PaymentResponse apply(int advanceId, ApplyAdvanceRequest request);
+
+    /**
+     * Tự cấn các cọc ACTIVE của đúng đơn khi xuất invoice: cọc nào vừa
+     * (<= số còn nợ lúc đó) thì apply hết, cọc lớn hơn thì giữ lại.
+     * Trả về số cọc đã cấn.
+     */
+    int autoApply(int invoiceId);
 
     AdvanceResponse cancel(int id);
 }

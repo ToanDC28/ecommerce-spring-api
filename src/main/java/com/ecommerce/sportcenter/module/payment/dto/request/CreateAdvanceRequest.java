@@ -16,14 +16,10 @@ import lombok.Setter;
 @AllArgsConstructor
 @Builder
 public class CreateAdvanceRequest {
-    @Schema(example = "1", description = "Customer id (bắt buộc)")
-    @NotNull(message = "Customer id is required")
-    private Integer customerId;
-
-    @Schema(example = "1", description = "Work order id cọc cho (optional)")
+    @Schema(example = "1", description = "Work order id cọc cho — bắt buộc 1 trong 2 (WO hoặc SO)")
     private Integer workOrderId;
 
-    @Schema(example = "2", description = "Sales order id cọc cho (optional)")
+    @Schema(example = "2", description = "Sales order id cọc cho — bắt buộc 1 trong 2 (WO hoặc SO)")
     private Integer salesOrderId;
 
     @Schema(example = "2000000", description = "Amount VND > 0")

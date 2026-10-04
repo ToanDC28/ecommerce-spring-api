@@ -21,6 +21,40 @@ services:
     volumes:
       - redis-data:/data
 
+  # Ảnh nghiệm thu: Zipline tự host (upload qua API, trả URL).
+  # Setup lần đầu: mở Zipline -> tạo admin -> Settings/API keys -> tạo token
+  # -> dán vào app.zipline.api-key của backend rồi restart backend.
+  shop-zipline-db:
+    image: postgres:16-alpine
+    container_name: shop-zipline-db
+    restart: always
+    environment:
+      POSTGRES_DB: 'zipline'
+      POSTGRES_USER: 'zipline'
+      POSTGRES_PASSWORD: 'change-me-zipline-db'
+    volumes:
+      - zipline-db-data:/var/lib/postgresql/data
+
+  shop-zipline:
+    image: ghcr.io/diced/zipline:latest
+    container_name: shop-zipline
+    restart: always
+    depends_on:
+      - shop-zipline-db
+    environment:
+      DATABASE_URL: 'postgresql://zipline:change-me-zipline-db@shop-zipline-db:5432/zipline'
+      REDIS_URL: 'redis://ecommerce-redis:6379'
+      CORE_SECRET: 'change-me-to-32-random-chars-minimum-please-12345678'
+      PORT: '3000'
+      # Đổi thành domain thật khi deploy (vd https://anh.xuongbinh.com)
+      WEBSITE_URL: 'http://localhost:3001'
+    ports:
+      - "3001:3000"
+    volumes:
+      - zipline-uploads:/uploads
+
 volumes:
   redis-data:
   postgres-data:
+  zipline-db-data:
+  zipline-uploads:

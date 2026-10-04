@@ -60,11 +60,16 @@ public class MaterialServiceImpl implements MaterialService {
                 String like = "%" + request.getKeyword().toLowerCase() + "%";
                 predicates.add(builder.or(
                         builder.like(builder.lower(root.get("sku")), like),
-                        builder.like(builder.lower(root.get("name")), like)));
+                        builder.like(builder.lower(root.get("name")), like),
+                        builder.like(builder.lower(root.get("spec")), like)));
             }
             if (request.getSku() != null && !request.getSku().isBlank()) {
                 predicates.add(builder.like(builder.lower(root.get("sku")),
                         "%" + request.getSku().toLowerCase() + "%"));
+            }
+            if (request.getMaterialGrade() != null && !request.getMaterialGrade().isBlank()) {
+                predicates.add(builder.equal(builder.lower(root.get("materialGrade")),
+                        request.getMaterialGrade().toLowerCase()));
             }
             if (request.getCategoryId() != null) {
                 predicates.add(builder.equal(root.get("category").get("id"), request.getCategoryId()));
