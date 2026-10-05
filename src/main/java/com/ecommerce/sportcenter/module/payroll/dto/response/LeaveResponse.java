@@ -6,20 +6,17 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
+
 @Getter
 @Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AttendanceResponse {
+public class LeaveResponse {
     private int id;
     private int staffId;
     private String staffUsername;
-    private String period;
-    private int salaryGradeId;
-    private String gradeLevel;
-    private int workingDays;
-    private double overtimeHours;
-    private int leaveDays;
+    private LocalDate leaveDate;
     private String note;
 }

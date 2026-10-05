@@ -28,6 +28,10 @@ public class PayrollResponse {
     private double overtimeHours;
     private long overtimePay;
     private long grossPay;
+    private long bonus;
+    private int leaveDays;
+    private String offDays;
+    private long leaveDeduction;
     private long insuranceDeduction;
     private long taxDeduction;
     private long netPay;

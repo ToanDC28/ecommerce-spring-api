@@ -6,6 +6,7 @@ import com.ecommerce.sportcenter.module.base.security.service.SecurityService;
 import com.ecommerce.sportcenter.module.payroll.PayrollApiExamples;
 import com.ecommerce.sportcenter.module.payroll.dto.request.ApprovePayrollRequest;
 import com.ecommerce.sportcenter.module.payroll.dto.request.SearchPayrollRequest;
+import com.ecommerce.sportcenter.module.payroll.dto.request.UpdatePayrollRequest;
 import com.ecommerce.sportcenter.module.payroll.dto.response.PayrollResponse;
 import com.ecommerce.sportcenter.module.payroll.service.PayrollService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -67,13 +68,23 @@ public class PayrollController {
                 .data(payrollService.getById(id, principal.getUsername(), canManageAll)).build();
     }
 
-    @Operation(summary = "Generate payrolls for period (idempotent, PENDING only)")
+    @Operation(summary = "Generate payrolls for period (idempotent, READY_TO_PAY; worker chạy mùng 1)")
     @PostMapping("/generate")
     @PreAuthorize("hasAnyAuthority('PAYROLL_WRITE')")
     public ApiResponse<List<PayrollResponse>> generate(@RequestParam String period) {
         return ApiResponse.<List<PayrollResponse>>builder()
                 .statusCode(201).message("Payrolls generated successfully")
                 .data(payrollService.generate(period)).build();
+    }
+
+    @Operation(summary = "Update payroll before approve (thưởng, tăng ca, thuế)")
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAnyAuthority('PAYROLL_WRITE')")
+    public ApiResponse<PayrollResponse> update(@PathVariable int id,
+                                              @Valid @RequestBody UpdatePayrollRequest request) {
+        return ApiResponse.<PayrollResponse>builder()
+                .statusCode(200).message("Payroll updated successfully")
+                .data(payrollService.update(id, request)).build();
     }
 
     @Operation(summary = "Approve payroll (chốt thuế TNCN khi duyệt)")

@@ -11,6 +11,7 @@ import com.ecommerce.sportcenter.module.auth.repository.RefreshTokenRepository;
 import com.ecommerce.sportcenter.module.role.repository.RoleRepository;
 import com.ecommerce.sportcenter.module.user.repository.UserRepository;
 import com.ecommerce.sportcenter.module.user.dto.request.AssignRolesRequest;
+import com.ecommerce.sportcenter.module.user.dto.request.UpdateContractRequest;
 import com.ecommerce.sportcenter.module.user.dto.request.CreateUserRequest;
 import com.ecommerce.sportcenter.module.user.dto.response.UserResponse;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class UserServiceImpl implements UserService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final com.ecommerce.sportcenter.module.payroll.repository.SalaryGradeRepository salaryGradeRepository;
     private final UserMapper userMapper;
 
     @Override
@@ -113,6 +115,9 @@ public class UserServiceImpl implements UserService {
                 .fullName(request.getFullName())
                 .enabled(true)
                 .roles(new HashSet<>(roles))
+                .salaryGrade(request.getSalaryGradeId() == null ? null : salaryGradeRepository.findById(request.getSalaryGradeId())
+                        .orElseThrow(() -> new ResourceNotFoundException("SalaryGrade not found with id: " + request.getSalaryGradeId())))
+                .agreedBaseSalary(request.getAgreedBaseSalary())
                 .build();
         return userMapper.toResponse(userRepository.save(user));
     }
@@ -171,6 +176,21 @@ public class UserServiceImpl implements UserService {
         }
         log.info("User deleted - userId={}, by={}", id, currentUsername);
         userRepository.delete(user);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse updateContract(int id, UpdateContractRequest request) {
+        User user = findOrThrow(id);
+        if (request.getSalaryGradeId() != null) {
+            user.setSalaryGrade(salaryGradeRepository.findById(request.getSalaryGradeId())
+                    .orElseThrow(() -> new ResourceNotFoundException("SalaryGrade not found with id: " + request.getSalaryGradeId())));
+        }
+        if (request.getAgreedBaseSalary() != null) {
+            user.setAgreedBaseSalary(request.getAgreedBaseSalary());
+        }
+        log.info("User contract updated - userId={}", id);
+        return userMapper.toResponse(userRepository.save(user));
     }
 
     @Override

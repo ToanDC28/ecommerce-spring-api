@@ -1,6 +1,7 @@
 package com.ecommerce.sportcenter.module.user.entity;
 
 import com.ecommerce.sportcenter.module.base.entity.BaseEntity;
+import com.ecommerce.sportcenter.module.payroll.entity.SalaryGrade;
 import com.ecommerce.sportcenter.module.role.entity.Role;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -53,6 +54,13 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "Enabled", nullable = false)
     @Builder.Default
     private boolean enabled = true;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "salary_grade_id")
+    private SalaryGrade salaryGrade; // bậc lương theo HĐLĐ (set lúc tuyển)
+
+    @Column(name = "agreedBaseSalary")
+    private Long agreedBaseSalary; // lương cơ bản đã thỏa thuận (null = theo grade)
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(

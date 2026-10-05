@@ -3,6 +3,7 @@ package com.ecommerce.sportcenter.module.payroll.service;
 import com.ecommerce.sportcenter.module.base.dto.response.PageResponse;
 import com.ecommerce.sportcenter.module.payroll.dto.request.ApprovePayrollRequest;
 import com.ecommerce.sportcenter.module.payroll.dto.request.SearchPayrollRequest;
+import com.ecommerce.sportcenter.module.payroll.dto.request.UpdatePayrollRequest;
 import com.ecommerce.sportcenter.module.payroll.dto.response.PayrollResponse;
 
 import java.util.List;
@@ -16,9 +17,14 @@ public interface PayrollService {
 
     List<PayrollResponse> generate(String period);
 
+    PayrollResponse update(int id, UpdatePayrollRequest request);
+
     PayrollResponse approve(int id, ApprovePayrollRequest request, String username);
 
     PayrollResponse reject(int id, String note, String username);
 
     PayrollResponse pay(int id, String username);
+
+    /** Worker mùng 1 hằng tháng: tính lương tháng trước cho toàn bộ staff đang làm. */
+    void runMonthlyPayroll();
 }

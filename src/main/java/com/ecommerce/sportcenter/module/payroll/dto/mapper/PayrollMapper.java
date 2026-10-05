@@ -1,11 +1,13 @@
 package com.ecommerce.sportcenter.module.payroll.dto.mapper;
 
-import com.ecommerce.sportcenter.module.payroll.dto.response.AttendanceResponse;
+import com.ecommerce.sportcenter.module.payroll.dto.response.LeaveResponse;
 import com.ecommerce.sportcenter.module.payroll.dto.response.PayrollResponse;
+import com.ecommerce.sportcenter.module.payroll.dto.response.PayrollSettingResponse;
 import com.ecommerce.sportcenter.module.payroll.dto.response.SalaryGradeResponse;
-import com.ecommerce.sportcenter.module.payroll.entity.Attendance;
 import com.ecommerce.sportcenter.module.payroll.entity.Payroll;
+import com.ecommerce.sportcenter.module.payroll.entity.PayrollSetting;
 import com.ecommerce.sportcenter.module.payroll.entity.SalaryGrade;
+import com.ecommerce.sportcenter.module.payroll.entity.StaffLeave;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -25,21 +27,26 @@ public class PayrollMapper {
                 .build();
     }
 
-    public AttendanceResponse toResponse(Attendance a) {
-        if (a == null) {
+    public LeaveResponse toResponse(StaffLeave l) {
+        if (l == null) {
             return null;
         }
-        return AttendanceResponse.builder()
-                .id(a.getId())
-                .staffId(a.getStaff() == null ? 0 : a.getStaff().getId())
-                .staffUsername(a.getStaff() == null ? null : a.getStaff().getUsername())
-                .period(a.getPeriod())
-                .salaryGradeId(a.getSalaryGrade() == null ? 0 : a.getSalaryGrade().getId())
-                .gradeLevel(a.getSalaryGrade() == null ? null : a.getSalaryGrade().getLevel())
-                .workingDays(a.getWorkingDays())
-                .overtimeHours(a.getOvertimeHours())
-                .leaveDays(a.getLeaveDays())
-                .note(a.getNote())
+        return LeaveResponse.builder()
+                .id(l.getId())
+                .staffId(l.getStaff() == null ? 0 : l.getStaff().getId())
+                .staffUsername(l.getStaff() == null ? null : l.getStaff().getUsername())
+                .leaveDate(l.getLeaveDate())
+                .note(l.getNote())
+                .build();
+    }
+
+    public PayrollSettingResponse toResponse(PayrollSetting s) {
+        if (s == null) {
+            return null;
+        }
+        return PayrollSettingResponse.builder()
+                .offWeekdays(s.getOffWeekdays())
+                .standardMonthDays(s.getStandardMonthDays())
                 .build();
     }
 
@@ -60,6 +67,10 @@ public class PayrollMapper {
                 .overtimeHours(p.getOvertimeHours())
                 .overtimePay(p.getOvertimePay())
                 .grossPay(p.getGrossPay())
+                .bonus(p.getBonus())
+                .leaveDays(p.getLeaveDays())
+                .offDays(p.getOffDays())
+                .leaveDeduction(p.getLeaveDeduction())
                 .insuranceDeduction(p.getInsuranceDeduction())
                 .taxDeduction(p.getTaxDeduction())
                 .netPay(p.getNetPay())

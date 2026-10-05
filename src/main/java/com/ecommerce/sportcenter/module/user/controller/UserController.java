@@ -7,6 +7,7 @@ import com.ecommerce.sportcenter.module.user.UserApiExamples;
 import com.ecommerce.sportcenter.module.user.dto.request.AssignRolesRequest;
 import com.ecommerce.sportcenter.module.user.dto.request.CreateUserRequest;
 import com.ecommerce.sportcenter.module.user.dto.request.ResetPasswordRequest;
+import com.ecommerce.sportcenter.module.user.dto.request.UpdateContractRequest;
 import com.ecommerce.sportcenter.module.user.dto.request.SearchUserRequest;
 import com.ecommerce.sportcenter.module.user.dto.response.UserResponse;
 import com.ecommerce.sportcenter.module.user.service.UserService;
@@ -121,6 +122,18 @@ public class UserController {
                 .statusCode(200)
                 .message("Password reset successfully")
                 .data(userService.resetPassword(id, request.getNewPassword()))
+                .build();
+    }
+
+    @Operation(summary = "Update hiring contract (bậc lương + lương thỏa thuận)")
+    @PutMapping("/{id}/contract")
+    @PreAuthorize("hasAnyAuthority('USER_WRITE', 'USER_UPDATE')")
+    public ApiResponse<UserResponse> updateContract(@PathVariable int id,
+                                                    @Valid @RequestBody UpdateContractRequest request) {
+        return ApiResponse.<UserResponse>builder()
+                .statusCode(200)
+                .message("Contract updated successfully")
+                .data(userService.updateContract(id, request))
                 .build();
     }
 }

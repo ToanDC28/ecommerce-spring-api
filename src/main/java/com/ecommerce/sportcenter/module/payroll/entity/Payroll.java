@@ -57,7 +57,22 @@ public class Payroll extends BaseEntity {
     private long overtimePay;
 
     @Column(name = "gross_pay", nullable = false)
-    private long grossPay;
+    private long grossPay; // base + allowance + overtime (chưa gồm bonus, chưa trừ nghỉ)
+
+    @Column(name = "leave_days", nullable = false)
+    @Builder.Default
+    private int leaveDays = 0; // ngày nghỉ tính trừ (đã loại off-day)
+
+    @Column(name = "off_days", length = 100)
+    private String offDays; // snapshot cấu hình ngày nghỉ lúc generate (vd SUNDAY)
+
+    @Column(name = "bonus", nullable = false)
+    @Builder.Default
+    private long bonus = 0L;
+
+    @Column(name = "leave_deduction", nullable = false)
+    @Builder.Default
+    private long leaveDeduction = 0L; // base/26 * leaveDays
 
     @Column(name = "insurance_deduction", nullable = false)
     private long insuranceDeduction; // 10.5% gross

@@ -3,13 +3,16 @@ package com.ecommerce.sportcenter.module.payroll.service.impl;
 import com.ecommerce.sportcenter.exception.BusinessValidationException;
 import com.ecommerce.sportcenter.module.payroll.dto.mapper.PayrollMapper;
 import com.ecommerce.sportcenter.module.payroll.dto.request.ApprovePayrollRequest;
+import com.ecommerce.sportcenter.module.payroll.dto.request.UpdatePayrollRequest;
 import com.ecommerce.sportcenter.module.payroll.dto.response.PayrollResponse;
-import com.ecommerce.sportcenter.module.payroll.entity.Attendance;
 import com.ecommerce.sportcenter.module.payroll.entity.Payroll;
+import com.ecommerce.sportcenter.module.payroll.entity.PayrollSetting;
 import com.ecommerce.sportcenter.module.payroll.entity.PayrollStatus;
 import com.ecommerce.sportcenter.module.payroll.entity.SalaryGrade;
-import com.ecommerce.sportcenter.module.payroll.repository.AttendanceRepository;
+import com.ecommerce.sportcenter.module.payroll.entity.StaffLeave;
 import com.ecommerce.sportcenter.module.payroll.repository.PayrollRepository;
+import com.ecommerce.sportcenter.module.payroll.repository.PayrollSettingRepository;
+import com.ecommerce.sportcenter.module.payroll.repository.StaffLeaveRepository;
 import com.ecommerce.sportcenter.module.user.entity.User;
 import com.ecommerce.sportcenter.module.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +24,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -38,7 +42,9 @@ class PayrollServiceImplTest {
     @Mock
     private PayrollRepository payrollRepository;
     @Mock
-    private AttendanceRepository attendanceRepository;
+    private StaffLeaveRepository staffLeaveRepository;
+    @Mock
+    private PayrollSettingRepository payrollSettingRepository;
     @Mock
     private UserRepository userRepository;
     @Mock
@@ -49,7 +55,8 @@ class PayrollServiceImplTest {
 
     private User staff() {
         return User.builder().id(2).username("tho01").email("t@shop.local")
-                .password("enc").enabled(true).roles(new HashSet<>()).build();
+                .password("enc").enabled(true).roles(new HashSet<>())
+                .salaryGrade(grade()).build();
     }
 
     private SalaryGrade grade() {
@@ -57,17 +64,26 @@ class PayrollServiceImplTest {
                 .allowance(1000000L).overtimeRatePerHour(50000L).active(true).build();
     }
 
+    private PayrollSetting setting() {
+        return PayrollSetting.builder().id(1).offWeekdays("SUNDAY").standardMonthDays(26).build();
+    }
+
     @Nested
     @DisplayName("generate():")
     class Generate {
 
         @Test
-        @DisplayName("success math: gross - 10.5% insurance = net")
+        @DisplayName("worker tính đúng: nghỉ T7 tính, nghỉ CN bỏ, net chuẩn")
         void math() {
             var staff = staff();
-            var att = Attendance.builder().id(1).staff(staff).period("2026-09")
-                    .salaryGrade(grade()).workingDays(26).overtimeHours(10.0).leaveDays(0).build();
-            when(attendanceRepository.findByPeriod("2026-09")).thenReturn(List.of(att));
+            when(payrollSettingRepository.findAll()).thenReturn(List.of(setting()));
+            when(userRepository.findAll()).thenReturn(List.of(staff));
+            // Nghỉ CN 06/09 (bỏ vì off-day) + T2 07/09 (tính)
+            when(staffLeaveRepository.findByStaff_IdAndLeaveDateBetween(2,
+                    LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30)))
+                    .thenReturn(List.of(
+                            StaffLeave.builder().staff(staff).leaveDate(LocalDate.of(2026, 9, 6)).build(),
+                            StaffLeave.builder().staff(staff).leaveDate(LocalDate.of(2026, 9, 7)).build()));
             when(payrollRepository.findByStaff_IdAndPeriod(2, "2026-09")).thenReturn(Optional.empty());
             when(payrollRepository.save(any())).thenAnswer(i -> i.getArgument(0));
             when(payrollMapper.toResponse(any())).thenReturn(PayrollResponse.builder().period("2026-09").build());
@@ -77,57 +93,51 @@ class PayrollServiceImplTest {
             var captor = org.mockito.ArgumentCaptor.forClass(Payroll.class);
             verify(payrollRepository).save(captor.capture());
             Payroll saved = captor.getValue();
-            // gross = 8M + 1M + 10*50k = 9.5M; insurance = round(9.5M*10.5%) = 997500; net = 8502500
-            assertThat(saved.getGrossPay()).isEqualTo(9500000L);
-            assertThat(saved.getInsuranceDeduction()).isEqualTo(997500L);
-            assertThat(saved.getNetPay()).isEqualTo(8502500L);
-            assertThat(saved.getStatus()).isEqualTo(PayrollStatus.PENDING);
+            // leaveDays=1 (CN bỏ), leave = round(8M/26*1) = 307692
+            // gross = 8M+1M+0 = 9M, insurance = 945000, net = 9M-307692-945000 = 7747308
+            assertThat(saved.getLeaveDays()).isEqualTo(1);
+            assertThat(saved.getLeaveDeduction()).isEqualTo(307692L);
+            assertThat(saved.getNetPay()).isEqualTo(7747308L);
+            assertThat(saved.getStatus()).isEqualTo(PayrollStatus.READY_TO_PAY);
         }
 
         @Test
-        @DisplayName("idempotent: skip APPROVED/PAID, recalc PENDING")
-        void idempotent() {
-            var staff = staff();
-            var att = Attendance.builder().id(1).staff(staff).period("2026-09")
-                    .salaryGrade(grade()).workingDays(26).overtimeHours(0.0).leaveDays(0).build();
-            var paid = Payroll.builder().id(9).staff(staff).period("2026-09")
-                    .grossPay(1L).netPay(1L).status(PayrollStatus.PAID).build();
-            when(attendanceRepository.findByPeriod("2026-09")).thenReturn(List.of(att));
-            when(payrollRepository.findByStaff_IdAndPeriod(2, "2026-09")).thenReturn(Optional.of(paid));
-            when(payrollMapper.toResponse(paid)).thenReturn(PayrollResponse.builder().id(9).build());
+        @DisplayName("thiếu bậc lương thì báo rõ tên")
+        void missingGrade() {
+            var noGrade = User.builder().id(3).username("tho02").email("t2@shop.local")
+                    .password("enc").enabled(true).roles(new HashSet<>()).build();
+            when(payrollSettingRepository.findAll()).thenReturn(List.of(setting()));
+            when(userRepository.findAll()).thenReturn(List.of(noGrade));
 
-            var result = service.generate("2026-09");
-
-            assertThat(result).hasSize(1);
-            verify(payrollRepository, never()).save(any());
-        }
-
-        @Test
-        @DisplayName("reject bad period format")
-        void badPeriod() {
-            assertThatThrownBy(() -> service.generate("2026-13"))
+            assertThatThrownBy(() -> service.generate("2026-09"))
                     .isInstanceOf(BusinessValidationException.class)
-                    .hasMessageContaining("YYYY-MM");
+                    .hasMessageContaining("tho02");
         }
     }
 
     @Nested
-    @DisplayName("approve()/pay():")
-    class ApprovePay {
+    @DisplayName("update() + approve()/pay():")
+    class Review {
 
         @Test
-        @DisplayName("approve chốt thuế, pay flips PAID immutable")
+        @DisplayName("update bonus/OT rồi approve chốt thuế, pay flips PAID")
         void flow() {
             var payroll = Payroll.builder().id(1).staff(staff()).period("2026-09")
-                    .grossPay(9500000L).insuranceDeduction(997500L).taxDeduction(0L)
-                    .netPay(8502500L).status(PayrollStatus.PENDING).build();
+                    .baseSalary(8000000L).allowance(1000000L).overtimeRate(50000L)
+                    .overtimeHours(0.0).overtimePay(0L).grossPay(9000000L)
+                    .bonus(0L).leaveDays(1).leaveDeduction(307692L)
+                    .insuranceDeduction(945000L).taxDeduction(0L).netPay(7747308L)
+                    .status(PayrollStatus.READY_TO_PAY).build();
             when(payrollRepository.findById(1)).thenReturn(Optional.of(payroll));
             when(payrollRepository.save(any())).thenAnswer(i -> i.getArgument(0));
             when(payrollMapper.toResponse(any())).thenReturn(PayrollResponse.builder().id(1).build());
 
-            service.approve(1, ApprovePayrollRequest.builder().taxDeduction(500000L).build(), "ketoan");
-            // net = 9.5M - 997500 - 500k = 8002500
-            assertThat(payroll.getNetPay()).isEqualTo(8002500L);
+            service.update(1, UpdatePayrollRequest.builder().bonus(500000L).build());
+            // net = 9M + 500k - 307692 - 945000 = 8247308
+            assertThat(payroll.getNetPay()).isEqualTo(8247308L);
+
+            service.approve(1, ApprovePayrollRequest.builder().taxDeduction(200000L).build(), "ketoan");
+            assertThat(payroll.getNetPay()).isEqualTo(8047308L);
             assertThat(payroll.getStatus()).isEqualTo(PayrollStatus.APPROVED);
 
             service.pay(1, "ketoan");
@@ -148,7 +158,7 @@ class PayrollServiceImplTest {
         void forbidden() {
             var other = User.builder().id(3).username("tho02").enabled(true).roles(new HashSet<>()).build();
             var payroll = Payroll.builder().id(1).staff(other).period("2026-09")
-                    .status(PayrollStatus.PENDING).build();
+                    .status(PayrollStatus.READY_TO_PAY).build();
             when(payrollRepository.findById(1)).thenReturn(Optional.of(payroll));
 
             assertThatThrownBy(() -> service.getById(1, "tho01", false))

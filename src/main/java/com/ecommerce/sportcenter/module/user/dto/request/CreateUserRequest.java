@@ -1,6 +1,8 @@
 package com.ecommerce.sportcenter.module.user.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.Size;
@@ -23,6 +25,13 @@ public class CreateUserRequest {
     private String password;
 
     private String fullName;
+
+    @Schema(example = "1", description = "Bậc lương theo HĐLĐ (optional, để trống khi chưa xếp)")
+    private Integer salaryGradeId;
+
+    @Schema(example = "8500000", description = "Lương cơ bản đã thỏa thuận (trống = theo grade)")
+    @Min(value = 0, message = "Agreed base must be >= 0")
+    private Long agreedBaseSalary;
 
     /**
      * Internal app: ADMIN assigns one or more staff roles
